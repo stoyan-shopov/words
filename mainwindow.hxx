@@ -7,6 +7,8 @@
 #include <QGraphicsEllipseItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsSimpleTextItem>
+#include <QDebug>
+#include <cmath>
 
 namespace Ui {
 class MainWindow;
@@ -30,6 +32,49 @@ public:
 		setFlags(QGraphicsItem::ItemIsMovable | QGraphicsItem::ItemIsSelectable | QGraphicsItem::ItemSendsGeometryChanges);
 	}
 protected:
+	void mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+	{
+		QGraphicsSimpleTextItem::mouseReleaseEvent(event);
+		qDebug() << "colliding items count:" << scene()->collidingItems(this, Qt::IntersectsItemBoundingRect).count();
+		auto items = scene()->items();
+		QVector<QGraphicsItem *> rowItems;
+		for (const auto& i : items)
+		{
+			if (i == this)
+				continue;
+			if (pos().y() == i->pos().y())
+				rowItems << i;
+		}
+		const auto x = pos().x();
+		qreal d1 = .0, d2;
+
+		for (auto& i : rowItems)
+		{
+			auto r = i->pos().x(), w = i->boundingRect().width();
+			if (r <= x && x < r + w)
+			{
+				d1 = r + w - x;
+				break;
+			}
+
+		}
+		for (auto& i : rowItems)
+		{
+			auto r = i->pos().x();
+			if (x < r && r < x + boundingRect().width())
+			{
+				d2 = x + boundingRect().width() - r;
+				break;
+			}
+		}
+
+		for (auto& i : rowItems)
+		{
+			if (i->pos().x() > x)
+				i->moveBy(d2, 0);
+		}
+		moveBy(d1, 0);
+	}
 	QVariant itemChange(GraphicsItemChange change,
 			    const QVariant &value)
 	{
