@@ -22,7 +22,7 @@ private:
 public:
 	int getFontWidth(void) { return fontWidth; }
 	int getFontHeight(void) { return fontHeight; }
-	Word(const QString &text, QGraphicsItem *parent = Q_NULLPTR) : QGraphicsSimpleTextItem(text, parent)
+	Word(const QString &text, QGraphicsItem *parent = Q_NULLPTR) : QGraphicsSimpleTextItem(text + ' ', parent)
 	{
 		const QFont f = QFontDatabase::systemFont(QFontDatabase::FixedFont);
 		QFontMetrics fm(f);
@@ -31,10 +31,9 @@ public:
 		setFont(f);
 		setFlags(QGraphicsItem::ItemIsMovable | QGraphicsItem::ItemIsSelectable | QGraphicsItem::ItemSendsGeometryChanges);
 	}
-protected:
-	void mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+
+	void adjustPosition(void)
 	{
-		QGraphicsSimpleTextItem::mouseReleaseEvent(event);
 		qDebug() << "colliding items count:" << scene()->collidingItems(this, Qt::IntersectsItemBoundingRect).count();
 		auto items = scene()->items();
 		QVector<QGraphicsItem *> rowItems;
@@ -45,35 +44,49 @@ protected:
 			if (pos().y() == i->pos().y())
 				rowItems << i;
 		}
-		const auto x = pos().x();
-		qreal d1 = .0, d2;
+		auto x = pos().x();
+		qreal d= .0;
 
+		/* adjust moved word position*/
 		for (auto& i : rowItems)
 		{
 			auto r = i->pos().x(), w = i->boundingRect().width();
 			if (r <= x && x < r + w)
 			{
-				d1 = r + w - x;
+				d = r + w - x;
 				break;
 			}
 
 		}
+
+		moveBy(d, 0);
+		x = pos().x();
+		d = .0;
+
+		/* if necessary, adjust the positions of other words on the same row */
 		for (auto& i : rowItems)
 		{
 			auto r = i->pos().x();
-			if (x < r && r < x + boundingRect().width())
+			if (x <= r && r < x + boundingRect().width())
 			{
-				d2 = x + boundingRect().width() - r;
+				d = x + boundingRect().width() - r;
 				break;
 			}
 		}
+		if (d == .0)
+			return;
 
 		for (auto& i : rowItems)
 		{
-			if (i->pos().x() > x)
-				i->moveBy(d2, 0);
+			if (i->pos().x() >= x)
+				i->moveBy(d, 0);
 		}
-		moveBy(d1, 0);
+	}
+protected:
+	void mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+	{
+		QGraphicsSimpleTextItem::mouseReleaseEvent(event);
+		adjustPosition();
 	}
 	QVariant itemChange(GraphicsItemChange change,
 			    const QVariant &value)
@@ -87,19 +100,6 @@ protected:
 				if (y < 0) y = 0;
 				if (y > 256 * fontHeight) y = 256 * fontHeight;
 				return QPointF(x, y);
-			/*
-			QPointF newPos = value.toPointF();
-			if(QApplication::mouseButtons() == Qt::LeftButton &&
-					qobject_cast<Scene*> (scene())){
-				Scene* customScene = qobject_cast<Scene*> (scene());
-				int gridSize = customScene->getGridSize();
-				qreal xV = round(newPos.x()/gridSize)*gridSize;
-				qreal yV = round(newPos.y()/gridSize)*gridSize;
-				return QPointF(xV, yV);
-			}
-			else
-				return newPos;
-				*/
 		}
 		else
 			return QGraphicsSimpleTextItem::itemChange(change, value);
