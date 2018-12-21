@@ -14,6 +14,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	scene.addItem(w = new Word("test2")); w->adjustPosition();
 	w->moveBy(0, w->getFontHeight() + 3);
 	scene.addItem(w = new Word("hello\nworld")); w->adjustPosition();
+
 	ui->graphicsView->setSceneRect(0, 0, 100, 100);
 }
 

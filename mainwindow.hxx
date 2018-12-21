@@ -7,6 +7,10 @@
 #include <QGraphicsEllipseItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsSimpleTextItem>
+#include <QGraphicsSceneMouseEvent>
+#include <QTouchEvent>
+#include <QGraphicsView>
+#include <QGestureEvent>
 #include <QDebug>
 #include <cmath>
 
@@ -19,6 +23,14 @@ class Word : public QObject, public QGraphicsSimpleTextItem
 	Q_OBJECT
 private:
 	int fontWidth, fontHeight;
+#ifdef Q_OS_ANDROID
+	enum
+	{
+		ANDROID_WORD_MOVEMENT_DISPLACEMENT_X_FACTOR	= 5,
+		ANDROID_WORD_MOVEMENT_DISPLACEMENT_Y_FACTOR	= 3,
+	};
+	QPointF mousePressPosition;
+#endif
 public:
 	int getFontWidth(void) { return fontWidth; }
 	int getFontHeight(void) { return fontHeight; }
@@ -83,9 +95,36 @@ public:
 		}
 	}
 protected:
+	bool sceneEvent(QEvent * event)
+	{
+		if (event->type() == QEvent::Gesture)
+		{
+			QGestureEvent * e = static_cast<QGestureEvent *>(event);
+			*(int*)0=0;
+		}
+		return QGraphicsSimpleTextItem::sceneEvent(event);
+	}
+	void mousePressEvent(QGraphicsSceneMouseEvent *event)
+	{
+#ifdef Q_OS_ANDROID
+		mousePressPosition = event->scenePos();
+		// !!! Android only !!!
+		moveBy(-ANDROID_WORD_MOVEMENT_DISPLACEMENT_X_FACTOR * fontWidth, -ANDROID_WORD_MOVEMENT_DISPLACEMENT_Y_FACTOR * fontHeight);
+#endif
+		QGraphicsSimpleTextItem::mousePressEvent(event);
+	scene()->views().at(0)->grabGesture(Qt::TapAndHoldGesture);
+	}
 	void mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 	{
 		QGraphicsSimpleTextItem::mouseReleaseEvent(event);
+#ifdef Q_OS_ANDROID
+		if (event->scenePos() == mousePressPosition)
+		{
+			// !!! Android only - undo movement in case release position is the same as the press position !!!
+			moveBy(ANDROID_WORD_MOVEMENT_DISPLACEMENT_X_FACTOR * fontWidth, ANDROID_WORD_MOVEMENT_DISPLACEMENT_Y_FACTOR * fontHeight);
+			return;
+		}
+#endif
 		adjustPosition();
 	}
 	QVariant itemChange(GraphicsItemChange change,
@@ -94,10 +133,10 @@ protected:
 		if (change == ItemPositionChange && scene()) {
 			QPointF newPos = value.toPointF();
 				qreal x = round(newPos.x()/fontWidth) * fontWidth;
-				if (x < 0) x = 0;
+				//if (x < 0) x = 0;
 				if (x > 256 * fontWidth) x = 256 * fontWidth;
 				qreal y = round(newPos.y()/fontHeight) * fontHeight;
-				if (y < 0) y = 0;
+				//if (y < 0) y = 0;
 				if (y > 256 * fontHeight) y = 256 * fontHeight;
 				return QPointF(x, y);
 		}
